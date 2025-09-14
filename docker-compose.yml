@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # Monolith Service
+  monolith-app:
+    build:
+      context: ./../mba-usp-software-engineering-monolith-app
+      dockerfile: Dockerfile
+    container_name: monolith-app
+    environment:
+      - SPRING_DATA_MONGODB_URI=mongodb://host.docker.internal:27017/monolith
+      - SPRING_RABBITMQ_HOST=host_docker_internal
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+      - MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS=read_only
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - SERVER_PORT=5004
+      - SERVER_ADDRESS=0.0.0.0
+    ports:
+      - "5004:5004"
+    networks:
+      - monitoring
+      - iot-network
+    depends_on:
+      - prometheus
+      - mongo
+
+
+
+
+
+  # Microservices
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_prometheus true"
+    networks:
+      - iot-network
+    command: >
+      sh -c "rabbitmq-plugins enable --offline rabbitmq_prometheus &&
+             rabbitmq-server"
+
+  ingestion-service:
+    build: ./../mba-usp-software-engineering-ingestion-service
+    container_name: ingestion-service
+    depends_on:
+      - rabbitmq
+    networks:
+      - iot-network
+    ports:
+      - "5000:5000"
+
+  processing-service:
+    build: ./../mba-usp-software-engineering-processing-service
+    container_name: processing-service
+    depends_on:
+      - rabbitmq
+    networks:
+      - iot-network
+    ports:
+      - "5001:5001"
+
+  notification-service:
+    build: ./../mba-usp-software-engineering-notification-service
+    container_name: notification-service
+    depends_on:
+      - rabbitmq
+    networks:
+      - iot-network
+    ports:
+      - "5002:5002"
+
+  persistence-service:
+    build: ./../mba-usp-software-engineering-persistence-service
+    container_name: persistence-service
+    depends_on:
+      - rabbitmq
+      - mongo
+    networks:
+      - iot-network
+    ports:
+      - "5003:5003"
+    
+  # Shared Infrastructure
+  mosquitto:
+    image: eclipse-mosquitto
+    container_name: mosquitto-broker
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./data/mosquitto:/mosquitto/data
+    networks:
+      - monitoring
+      - iot-network
+
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+      - iot-network
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./config/grafana:/etc/grafana
+    networks:
+      - monitoring
+      - iot-network
+    depends_on:
+      - prometheus
+
+  mongo:
+    image: mongo:latest
+    container_name: mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - iot-network
+    volumes:
+      - ./data/mongo:/data/db
+
+networks:
+  monitoring:
+    driver: bridge
+  iot-network:
+    driver: bridge
