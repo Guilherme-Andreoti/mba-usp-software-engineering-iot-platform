@@ -8,7 +8,7 @@ services:
       dockerfile: Dockerfile
     container_name: monolith-app
     environment:
-      - SPRING_DATA_MONGODB_URI=mongodb://host.docker.internal:27017/monolith
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/monolith
       - SPRING_RABBITMQ_HOST=host_docker_internal
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
@@ -17,6 +17,7 @@ services:
       - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
       - SERVER_PORT=5004
       - SERVER_ADDRESS=0.0.0.0
+      - MQTT_BROKER_URL=tcp://mosquitto:1883
     ports:
       - "5004:5004"
     networks:
@@ -56,6 +57,17 @@ services:
       - iot-network
     ports:
       - "5000:5000"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_NAME=ingestion.service
+      - MANAGEMENT_SERVER_PORT=5000
+      - MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS=read_only
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+      - MQTT_BROKER_URL=tcp://mosquitto:1883
 
   processing-service:
     build: ./../mba-usp-software-engineering-processing-service
@@ -66,6 +78,18 @@ services:
       - iot-network
     ports:
       - "5001:5001"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_NAME=processing.service
+      - RABBITMQ_QUEUES_PROCESSED_DATA=processed.data
+      - RABBITMQ_QUEUE_RAW=sensor.data.queue
+      - MANAGEMENT_SERVER_PORT=5001
+      - MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS=read_only
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
 
   notification-service:
     build: ./../mba-usp-software-engineering-notification-service
@@ -76,6 +100,16 @@ services:
       - iot-network
     ports:
       - "5002:5002"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_NAME=notification.service
+      - MANAGEMENT_SERVER_PORT=5002
+      - MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS=read_only
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
 
   persistence-service:
     build: ./../mba-usp-software-engineering-persistence-service
@@ -87,7 +121,20 @@ services:
       - iot-network
     ports:
       - "5003:5003"
-    
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_APPLICATION_NAME=persistence.service
+      - SERVER_PORT=4000
+      - SERVER_ADDRESS=0.0.0.0
+      - MANAGEMENT_SERVER_PORT=5003
+      - MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS=read_only
+      - MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=*
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=guest
+      - SPRING_RABBITMQ_PASSWORD=guest
+      - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/distributed_architecture
+
   # Shared Infrastructure
   mosquitto:
     image: eclipse-mosquitto
@@ -103,6 +150,18 @@ services:
       - monitoring
       - iot-network
 
+  mosquitto-exporter:
+    image: sapcc/mosquitto-exporter
+    container_name: mosquitto-exporter
+    ports:
+      - "9234:9234"
+    command: --endpoint tcp://mosquitto:1883
+    depends_on:
+      - mosquitto
+    networks:
+      - monitoring
+      - iot-network
+      
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -115,7 +174,8 @@ services:
       - iot-network
 
   grafana:
-    image: grafana/grafana
+    build:
+      context: ./config/grafana/
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -138,6 +198,25 @@ services:
       - iot-network
     volumes:
       - ./data/mongo:/data/db
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor
+    container_name: cadvisor
+    restart: always
+    privileged: true
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      # Esta montagem de volume é a que causava problemas.
+      # Removendo-a, o cAdvisor ainda conseguirá ler o socket do Docker.
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    networks:
+      - monitoring
+      - iot-network
 
 networks:
   monitoring:
