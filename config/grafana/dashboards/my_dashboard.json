@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
-  "id": 1,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -105,7 +105,7 @@
           "fullMetaSearch": false,
           "hide": false,
           "includeNullMetadata": true,
-          "legendFormat": "Microsserviços - Ingestão",
+          "legendFormat": "Microsserviço - Ingestão",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -211,7 +211,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Microsserviços - Total",
+          "legendFormat": "Microsserviços",
           "range": true,
           "refId": "C",
           "useBackend": false
@@ -234,7 +234,7 @@
           "useBackend": false
         }
       ],
-      "title": "Memory Usage Comparison",
+      "title": "Uso de memória",
       "type": "timeseries"
     },
     {
@@ -265,7 +265,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 0,
         "y": 8
@@ -303,7 +303,7 @@
           "expr": "persisted_records_total{job=\"monolith\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
-          "legendFormat": "Monolith",
+          "legendFormat": "Monolito",
           "range": true,
           "refId": "A",
           "useBackend": false
@@ -320,7 +320,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "microservices",
+          "legendFormat": "Microsserviço - Persistência",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -392,7 +392,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 12,
         "y": 8
@@ -420,31 +420,8 @@
           },
           "expr": "sum(rate(mqtt_messages_received_total{job=\"monolith\"}[1m]))",
           "format": "time_series",
-          "legendFormat": "Monolith (MQTT Received)",
+          "legendFormat": "Monolito",
           "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(rabbitmq_published_total{job=\"monolith\"}[1m]))",
-          "format": "time_series",
-          "hide": true,
-          "legendFormat": "Monolith (RabbitMQ Published)",
-          "refId": "C"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(rabbitmq_published_total{job=~\"ingestion-service|processing-service|notification-service|persistence-service\"}[1m]))",
-          "hide": true,
-          "legendFormat": "Microservices (RabbitMQ Published)",
-          "range": true,
-          "refId": "D"
         },
         {
           "datasource": {
@@ -455,12 +432,12 @@
           "expr": "sum(rate(mqtt_messages_received_total{job=\"ingestion-service\"}[1m]))",
           "format": "time_series",
           "hide": false,
-          "legendFormat": "Ingestion Service (MQTT Received)",
+          "legendFormat": "Microsserviço - Ingestão",
           "range": true,
           "refId": "E"
         }
       ],
-      "title": "Message Rate (per second)",
+      "title": "Mensagens processadas por segundo",
       "type": "timeseries"
     },
     {
@@ -528,7 +505,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 17
+        "y": 16
       },
       "id": 7,
       "options": {
@@ -558,7 +535,7 @@
           "hide": false,
           "includeNullMetadata": true,
           "instant": false,
-          "legendFormat": "Monolith",
+          "legendFormat": "Monolito",
           "range": true,
           "refId": "B",
           "useBackend": false
@@ -578,23 +555,6 @@
           "legendFormat": "Microsserviços",
           "range": true,
           "refId": "C",
-          "useBackend": false
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "aey6tj8n64q9sc"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "rate(mqtt_messages_received_total[1m])",
-          "fullMetaSearch": false,
-          "hide": true,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "__auto",
-          "range": true,
-          "refId": "A",
           "useBackend": false
         }
       ],
@@ -660,15 +620,15 @@
               }
             ]
           },
-          "unit": "percentunit"
+          "unit": "Cores"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 12,
-        "y": 17
+        "y": 16
       },
       "id": 2,
       "options": {
@@ -692,42 +652,51 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "process_cpu_usage{job=\"monolith\"}",
+          "expr": "rate(container_cpu_usage_seconds_total{name=\"monolith-app\"}[1m])",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Monolito",
           "range": true,
-          "refId": "A"
+          "refId": "C"
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "editorMode": "code",
-          "expr": "sum(process_cpu_usage{job=~\"ingestion-service|processing-service|notification-service|persistence-service|rabbitmq\"})",
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\"ingestion-service|processing-service|notification-service|persistence-service|rabbitmq\"}[1m]))",
           "format": "time_series",
+          "fullMetaSearch": false,
           "hide": false,
+          "includeNullMetadata": true,
           "intervalFactor": 1,
           "legendFormat": "Microsserviços",
           "range": true,
-          "refId": "B"
+          "refId": "D",
+          "useBackend": false
         },
         {
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(system_cpu_usage{job=~\"monolith|ingestion-service|processing-service|notification-service|persistence-service\"})",
-          "format": "time_series",
+          "disableTextWrap": false,
+          "editorMode": "builder",
+          "expr": "container_cpu_usage_seconds_total",
+          "fullMetaSearch": false,
           "hide": true,
-          "intervalFactor": 1,
-          "legendFormat": "System CPU (Total)",
-          "refId": "C"
+          "includeNullMetadata": true,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "E",
+          "useBackend": false
         }
       ],
-      "title": "CPU Usage Comparison",
+      "title": "Uso de CPU",
       "type": "timeseries"
     }
   ],
@@ -744,7 +713,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Monolith vs Microservices Comparison",
+  "title": "Comparação entre Monolito e Microsserviços",
   "uid": "1mYgQ_5Gk",
-  "version": 9
+  "version": 1
 }

@@ -25,8 +25,13 @@ services:
       - iot-network
     depends_on:
       - prometheus
-      - mongo
-
+      - mosquitto
+      
+    deploy:
+      resources:
+        limits:
+          memory: 5120m
+          cpus: 5
 
 
 
@@ -47,12 +52,18 @@ services:
     command: >
       sh -c "rabbitmq-plugins enable --offline rabbitmq_prometheus &&
              rabbitmq-server"
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: '1.3'
 
   ingestion-service:
     build: ./../mba-usp-software-engineering-ingestion-service
     container_name: ingestion-service
     depends_on:
       - rabbitmq
+      - mosquitto
     networks:
       - iot-network
     ports:
@@ -68,6 +79,11 @@ services:
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
       - MQTT_BROKER_URL=tcp://mosquitto:1883
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: '0.8'
 
   processing-service:
     build: ./../mba-usp-software-engineering-processing-service
@@ -90,6 +106,11 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: '0.9'
 
   notification-service:
     build: ./../mba-usp-software-engineering-notification-service
@@ -110,6 +131,11 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: '1'
 
   persistence-service:
     build: ./../mba-usp-software-engineering-persistence-service
@@ -134,6 +160,11 @@ services:
       - SPRING_RABBITMQ_USERNAME=guest
       - SPRING_RABBITMQ_PASSWORD=guest
       - SPRING_DATA_MONGODB_URI=mongodb://mongo:27017/distributed_architecture
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+          cpus: '1'
 
   # Shared Infrastructure
   mosquitto:
@@ -150,18 +181,6 @@ services:
       - monitoring
       - iot-network
 
-  mosquitto-exporter:
-    image: sapcc/mosquitto-exporter
-    container_name: mosquitto-exporter
-    ports:
-      - "9234:9234"
-    command: --endpoint tcp://mosquitto:1883
-    depends_on:
-      - mosquitto
-    networks:
-      - monitoring
-      - iot-network
-      
   prometheus:
     image: prom/prometheus
     container_name: prometheus
@@ -179,16 +198,27 @@ services:
     container_name: grafana
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_RENDERING_SERVER_URL=http://renderer:8081/render
+      # URL que o renderizador usa para acessar o Grafana. O nome do serviço é 'grafana'
+      - GF_RENDERING_CALLBACK_URL=http://grafana:3000
     ports:
       - "3000:3000"
     volumes:
-      - ./config/grafana:/etc/grafana
+      - ./config/grafana/datasources/:/etc/grafana/provisioning/datasources/
+      - ./config/grafana/dashboards/:/etc/grafana/provisioning/dashboards/
     networks:
       - monitoring
       - iot-network
     depends_on:
       - prometheus
 
+  renderer:
+    image: grafana/grafana-image-renderer:latest
+    container_name: grafana-image-renderer
+    ports:
+      - "8081:8081"
+    networks:
+      - monitoring
   mongo:
     image: mongo:latest
     container_name: mongo
@@ -210,8 +240,6 @@ services:
       - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
-      # Esta montagem de volume é a que causava problemas.
-      # Removendo-a, o cAdvisor ainda conseguirá ler o socket do Docker.
       - /var/lib/docker/:/var/lib/docker:ro
       - /cgroup:/cgroup:ro
     networks:

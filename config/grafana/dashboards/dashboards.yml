@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: 'Microsserviços x Monolito'
+    orgId: 1
+    folder: 'Comparação'
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards/
